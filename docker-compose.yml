@@ -1,45 +1,53 @@
-version: "3.8"
-services:
-  rustdesk-api-server:
-    container_name: rustdesk-api-server
-    image: kingmo888/rustdesk-api-server:latest
-    environment:
-      - ID_SERVER=1.94.125.193
-    volumes:
-      - /opt/rustdesk/db:/rustdesk-api-server/db
-      - /etc/timezone:/etc/timezone:ro
-      - /etc/localtime:/etc/localtime:ro
-    network_mode: bridge
-    ports:
-      - "21114:21114"
-    restart: unless-stopped
+version: '3.3'  # 使用与 Docker Compose 1.25.0 兼容的版本
 
+# 定义自定义网络
+networks:
+  rustdesk-net:
+    driver: bridge
+
+# 定义服务
+services:
   hbbs:
     container_name: hbbs
     image: rustdesk/rustdesk-server
-    command: hbbs -r 1.94.125.193 -k 12345678
+    command: hbbs -r yourdomain.com:21117 -k 12345678  # 设置域名/IP 和密钥
+    ports:
+      - "21115:21115"         # hbbs 的 TCP 端口
+      - "21116:21116"         # hbbs 的 TCP 端口（双向聚焦端口）
+      - "21116:21116/udp"     # hbbs 的 UDP 端口（双向聚焦端口）
     volumes:
-      - /opt/rustdesk/data:/root
-    depends_on:
-      - hbbr
-    deploy:
-      restart_policy:
-        condition: unless-stopped
+      - ./rustdeskweb/hbbs:/root      # 将主机的 rustdeskweb/hbbs 目录映射到容器的 /root 目录
     networks:
       - rustdesk-net
+    depends_on:
+      - hbbr                   # 确保 hbbr 在 hbbs 之前启动
+    restart: unless-stopped
+    # 移除 deploy 部分，因为在非 Swarm 模式下不支持
 
   hbbr:
     container_name: hbbr
     image: rustdesk/rustdesk-server
-    command: hbbr -k 12345678
+    command: hbbr -k 12345678  # 确保密钥与 hbbs 一致
+    ports:
+      - "21117:21117"         # hbbr 的 TCP 端口
     volumes:
-      - /opt/rustdesk/data:/root
-    deploy:
-      restart_policy:
-        condition: unless-stopped
+      - ./rustdeskweb/hbbr:/root      # 将主机的 rustdeskweb/hbbr 目录映射到容器的 /root 目录
     networks:
       - rustdesk-net
+    restart: unless-stopped
+    # 移除 deploy 部分
 
-networks:
-  rustdesk-net:
-    external: false
+  rustdesk-api-server:
+    container_name: rustdesk-api-server
+    image: kingmo888/rustdesk-api-server:latest
+    ports:
+      - "21114:21114"         # API 服务器的端口
+    environment:
+      - ID_SERVER=yourdomain.com  # 设置 ID_SERVER 为您的域名/IP
+    volumes:
+      - ./rustdeskweb/db:/rustdesk-api-server/db          # 将主机的 rustdeskweb/db 目录映射到容器的数据库目录
+      - /etc/timezone:/etc/timezone:ro             # 时区配置（只读）
+      - /etc/localtime:/etc/localtime:ro           # 本地时间配置（只读）
+    networks:
+      - rustdesk-net
+    restart: unless-stopped

@@ -1,0 +1,45 @@
+version: "3.8"
+services:
+  rustdesk-api-server:
+    container_name: rustdesk-api-server
+    image: kingmo888/rustdesk-api-server:latest
+    environment:
+      - ID_SERVER=1.94.125.193
+    volumes:
+      - /opt/rustdesk/db:/rustdesk-api-server/db
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    network_mode: bridge
+    ports:
+      - "21114:21114"
+    restart: unless-stopped
+
+  hbbs:
+    container_name: hbbs
+    image: rustdesk/rustdesk-server
+    command: hbbs -r 1.94.125.193 -k 12345678
+    volumes:
+      - /opt/rustdesk/data:/root
+    depends_on:
+      - hbbr
+    deploy:
+      restart_policy:
+        condition: unless-stopped
+    networks:
+      - rustdesk-net
+
+  hbbr:
+    container_name: hbbr
+    image: rustdesk/rustdesk-server
+    command: hbbr -k 12345678
+    volumes:
+      - /opt/rustdesk/data:/root
+    deploy:
+      restart_policy:
+        condition: unless-stopped
+    networks:
+      - rustdesk-net
+
+networks:
+  rustdesk-net:
+    external: false
